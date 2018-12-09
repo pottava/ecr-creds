@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/sts"
 	lib "github.com/pottava/ecr-creds/lib"
 	cli "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -54,6 +55,9 @@ func main() {
 	getConf := &getConfig{}
 	getConf.Field = cmdGet.Arg("field", "Specify the return field").String()
 
+	cmdScript := app.Command("script", "Return an ECR login script.")
+
+	// Recover
 	defer func() {
 		if err := recover(); err != nil {
 			if conf.IsDebugMode {
@@ -62,21 +66,28 @@ func main() {
 			lib.Errors.Fatal(err)
 		}
 	}()
+
+	// Cancel
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancel()
+		os.Exit(1)
+	}()
+
 	switch cli.MustParse(app.Parse(os.Args[1:])) {
 	case cmdGet.FullCommand():
-
-		// Cancel
-		ctx, cancel := context.WithCancel(context.Background())
-		c := make(chan os.Signal)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-c
-			cancel()
-			os.Exit(1)
-		}()
-
-		// Execute
 		exitCode, err := get(ctx, conf, getConf)
+		if err != nil {
+			lib.Errors.Fatal(err)
+			return
+		}
+		os.Exit(int(aws.Int64Value(exitCode)))
+
+	case cmdScript.FullCommand():
+		exitCode, err := script(ctx, conf, getConf)
 		if err != nil {
 			lib.Errors.Fatal(err)
 			return
@@ -115,6 +126,14 @@ func get(ctx context.Context, conf *config, getConf *getConfig) (exitCode *int64
 	if err != nil {
 		return exitWithError, err
 	}
+	// Retrieve IAM identity
+	switch aws.StringValue(getConf.Field) {
+	case "account":
+		if identity, err := retrieveIdentity(ctx, sess); err == nil {
+			lib.Logger.Println(identity.Account)
+			return exitNormally, nil
+		}
+	}
 	// Retrieve ECR credentials
 	cred, err := retrieveCreds(ctx, sess)
 	if err != nil {
@@ -137,6 +156,10 @@ func get(ctx context.Context, conf *config, getConf *getConfig) (exitCode *int64
 		lib.PrintJSON(cred)
 	}
 	return exitNormally, nil
+}
+
+func retrieveIdentity(ctx context.Context, sess *session.Session) (*sts.GetCallerIdentityOutput, error) {
+	return sts.New(sess).GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
 }
 
 func retrieveCreds(ctx context.Context, sess *session.Session) (*cred, error) {
@@ -165,4 +188,27 @@ func retrieveCreds(ctx context.Context, sess *session.Session) (*cred, error) {
 		DockerLoginEndpoint: endpoint,
 		DockerCredExpiresAt: lib.TimeFormat(auth.ExpiresAt),
 	}, nil
+}
+
+func script(ctx context.Context, conf *config, getConf *getConfig) (exitCode *int64, err error) {
+	if conf.IsDebugMode {
+		lib.PrintJSON(conf)
+	}
+	// Check AWS credentials
+	sess, err := lib.Session(conf.AccessKey, conf.SecretKey, conf.Region, nil)
+	if err != nil {
+		return exitWithError, err
+	}
+	// Retrieve ECR credentials
+	cred, err := retrieveCreds(ctx, sess)
+	if err != nil {
+		return exitWithError, err
+	}
+	lib.Logger.Printf(
+		"docker login --username %s --password %s %s",
+		cred.DockerUser,
+		cred.DockerPassword,
+		cred.DockerLoginEndpoint,
+	)
+	return exitNormally, nil
 }

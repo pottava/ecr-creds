@@ -28,6 +28,12 @@ AWS_DEFAULT_REGION        | region, r       | AWS `region` for API access     | 
 ## Usage
 
 ```console
+$ ecr-creds -a AKIAIOSFODNN7EXAMPLE -s wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY script | sh
+WARNING! Using --password via the CLI is insecure. Use --password-stdin.
+Login Succeeded
+```
+
+```console
 $ ecr-creds -a AKIAIOSFODNN7EXAMPLE -s wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY get
 {
   "account": "123456789012",
