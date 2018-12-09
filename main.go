@@ -129,7 +129,7 @@ func get(ctx context.Context, conf *config, getConf *getConfig) (exitCode *int64
 	// Retrieve IAM identity
 	switch aws.StringValue(getConf.Field) {
 	case "account":
-		if identity, err := retrieveIdentity(ctx, sess); err == nil {
+		if identity, e := retrieveIdentity(ctx, sess); e == nil {
 			lib.Logger.Println(identity.Account)
 			return exitNormally, nil
 		}
