@@ -20,7 +20,6 @@ import (
 
 var (
 	version = "1.0.x"
-	commit  string
 	date    string
 )
 
@@ -38,7 +37,7 @@ type getConfig struct {
 func main() {
 	app := cli.New("ecr-creds", "Managing Amazon ECR credentials")
 	if len(version) > 0 && len(date) > 0 {
-		app.Version(fmt.Sprintf("%s-%s (built at %s)", version, commit, date))
+		app.Version(fmt.Sprintf("%s (built at %s)", version, date))
 	} else {
 		app.Version(version)
 	}
