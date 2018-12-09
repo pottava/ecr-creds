@@ -7,6 +7,20 @@ This is a CLI tool which retrieves credentials from Amazon ECR.
 
 ## Installation
 
+curl (macOS):
+
+```
+$ curl -Lo ecr-creds https://github.com/pottava/ecr-creds/releases/download/v1.0.0/darwin_amd64
+$ chmod +x ecr-creds
+```
+
+curl (Linux):
+
+```
+$ curl -Lo ecr-creds https://github.com/pottava/ecr-creds/releases/download/v1.0.0/linux_amd64
+$ chmod +x ecr-creds
+```
+
 go:
 
 ```
