@@ -1,11 +1,11 @@
 workflow "Test & build" {
   on = "push"
-  resolves = ["TestAndBuild"]
+  resolves = ["TestResult"]
 }
 
 workflow "Release a new version" {
   on = "release"
-  resolves = ["BuildAndRelease"]
+  resolves = ["ReleaseResult"]
 }
 
 action "Branch" {
@@ -18,22 +18,25 @@ action "Deps" {
 }
 
 action "Lint" {
-  needs = ["Deps"]
+  needs = ["Branch", "Deps"]
   uses = "pottava/github-actions/go/lint@master"
 }
 
-action "UnitTest" {
+action "Test" {
   needs = ["Deps"]
   uses = "pottava/github-actions/go/test@master"
 }
 
-action "TestBuild" {
+action "Build" {
   needs = ["Deps"]
   uses = "pottava/github-actions/go/build@master"
+  env = {
+    BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date '+%Y-%m-%d')"
+  }
 }
 
-action "TestAndBuild" {
-  needs = ["Branch", "Lint", "UnitTest", "TestBuild"]
+action "TestResult" {
+  needs = ["Lint", "Test", "Build"]
   uses = "actions/bin/debug@master"
 }
 
@@ -42,16 +45,21 @@ action "Tags" {
   args = "tag v*"
 }
 
-action "Release" {
-  needs = ["Deps"]
+action "ReleaseBuild" {
+  needs = ["Tags", "Deps"]
   uses = "pottava/github-actions/go/build@master"
   env = {
-    POST_PROCESS = "github_release"
+    BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date '+%Y-%m-%d')"
   }
+}
+
+action "Release" {
+  needs = ["ReleaseBuild"]
+  uses = "pottava/github-actions/github/release@master"
   secrets = ["GITHUB_TOKEN"]
 }
 
-action "BuildAndRelease" {
-  needs = ["Tags", "Release"]
+action "ReleaseResult" {
+  needs = ["Release"]
   uses = "actions/bin/debug@master"
 }
