@@ -14,22 +14,22 @@ action "Branch" {
 }
 
 action "Deps" {
-  uses = "pottava/github-actions/go/deps@master"
+  uses = "supinf/github-actions/go/deps@master"
 }
 
 action "Lint" {
   needs = ["Branch", "Deps"]
-  uses = "pottava/github-actions/go/lint@master"
+  uses = "supinf/github-actions/go/lint@master"
 }
 
 action "Test" {
   needs = ["Deps"]
-  uses = "pottava/github-actions/go/test@master"
+  uses = "supinf/github-actions/go/test@master"
 }
 
 action "Build" {
   needs = ["Deps"]
-  uses = "pottava/github-actions/go/build@master"
+  uses = "supinf/github-actions/go/build@master"
   env = {
     BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date '+%Y-%m-%d')"
   }
@@ -47,7 +47,7 @@ action "Tags" {
 
 action "ReleaseBuild" {
   needs = ["Tags", "Deps"]
-  uses = "pottava/github-actions/go/build@master"
+  uses = "supinf/github-actions/go/build@master"
   env = {
     BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date '+%Y-%m-%d')"
   }
@@ -55,7 +55,7 @@ action "ReleaseBuild" {
 
 action "Release" {
   needs = ["ReleaseBuild"]
-  uses = "pottava/github-actions/github/release@master"
+  uses = "supinf/github-actions/github/release@master"
   secrets = ["GITHUB_TOKEN"]
 }
 
