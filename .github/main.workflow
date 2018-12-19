@@ -46,20 +46,51 @@ action "Tags" {
 }
 
 action "ReleaseBuild" {
-  needs = ["Tags", "Deps"]
+  needs = ["Deps"]
   uses = "supinf/github-actions/go/build@master"
   env = {
-    BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date '+%Y-%m-%d')"
+    BUILD_OPTIONS = "-X main.version=${version}-${GITHUB_SHA:0:7} -X main.date=$(date +%Y-%m-%d --utc)"
   }
 }
 
 action "Release" {
-  needs = ["ReleaseBuild"]
+  needs = ["Tags", "ReleaseBuild"]
   uses = "supinf/github-actions/github/release@master"
   secrets = ["GITHUB_TOKEN"]
 }
 
+action "BuildImage" {
+  needs = ["Tags", "ReleaseBuild"]
+  uses = "supinf/github-actions/docker/build@master"
+  args = "pottava/ecr-creds:1.0"
+  env = {
+    DOCKERFILE = "docker/1.0/Dockerfile"
+    BUILD_OPTIONS = "--no-cache"
+  }
+}
+
+action "TagImage" {
+  needs = ["BuildImage"]
+  uses = "supinf/github-actions/docker/tag@master"
+  env = {
+    SRC_IMAGE = "pottava/ecr-creds:1.0"
+    DST_IMAGE = "pottava/ecr-creds:latest"
+  }
+}
+
+action "Login" {
+  needs = ["BuildImage"]
+  uses = "supinf/github-actions/docker/login@master"
+  secrets = ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
+}
+
+action "PushImage" {
+  needs = ["TagImage", "Login"]
+  uses = "supinf/github-actions/docker/push@master"
+  args = "pottava/ecr-creds:1.0,pottava/ecr-creds:latest"
+}
+
 action "ReleaseResult" {
-  needs = ["Release"]
+  needs = ["Release", "PushImage"]
   uses = "actions/bin/debug@master"
 }
